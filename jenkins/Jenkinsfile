@@ -352,7 +352,7 @@ EOF
             echo "  Cleaning up workspace..."
             echo "========================================="
 
-            node {
+            node('master'){
                 cleanWs()
                 sh '''
                     # Remove sensitive files
