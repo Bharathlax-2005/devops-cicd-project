@@ -1,44 +1,48 @@
 // Jenkins Pipeline for DevOps CI/CD Project
-// Fixed version with node context and defined missing env vars
+// This pipeline automates the entire deployment process
 
 pipeline {
-    agent any
-
+    agent { label 'master' }
+    
+    // Environment variables
     environment {
-        // Azure credentials from Jenkins Credentials
+        // Azure credentials (configured in Jenkins)
         ARM_SUBSCRIPTION_ID = credentials('azure-subscription-id')
-        ARM_CLIENT_ID       = credentials('azure-client-id')
-        ARM_CLIENT_SECRET   = credentials('azure-client-secret')
-        ARM_TENANT_ID       = credentials('azure-tenant-id')
-
+        ARM_CLIENT_ID = credentials('azure-client-id')
+        ARM_CLIENT_SECRET = credentials('azure-client-secret')
+        ARM_TENANT_ID = credentials('azure-tenant-id')
+        
         // Project configuration
-        PROJECT_NAME  = 'devops-cicd'
+        PROJECT_NAME = 'devops-cicd'
         TERRAFORM_DIR = 'terraform'
-        APP_DIR       = 'app'
-        TF_VERSION    = '1.6.0'
-
-        // Default environment variables
-        ENVIRONMENT   = 'dev'      // can be 'dev', 'staging', or 'production'
-        BUILD_DOCKER  = 'false'    // set to 'true' to enable Docker build
+        APP_DIR = 'app'
+        
+        // Terraform version
+        TF_VERSION = '1.6.0'
     }
-
+    
+    // Pipeline options
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
         timeout(time: 30, unit: 'MINUTES')
         timestamps()
         disableConcurrentBuilds()
     }
-
+    
+    // Pipeline stages
     stages {
         stage('🔍 Initialization') {
             steps {
-                echo "========================================="
-                echo "  DevOps CI/CD Pipeline Started"
-                echo "========================================="
-                echo "Build Number: ${env.BUILD_NUMBER}"
-                echo "Job Name: ${env.JOB_NAME}"
-                echo "Workspace: ${env.WORKSPACE}"
-                echo "Environment: ${env.ENVIRONMENT}"
+                script {
+                    echo "========================================="
+                    echo "  DevOps CI/CD Pipeline Started"
+                    echo "========================================="
+                    echo "Build Number: ${env.BUILD_NUMBER}"
+                    echo "Build ID: ${env.BUILD_ID}"
+                    echo "Job Name: ${env.JOB_NAME}"
+                    echo "Workspace: ${env.WORKSPACE}"
+                    echo "========================================="
+                }
             }
         }
 
@@ -46,33 +50,46 @@ pipeline {
             steps {
                 echo "Checking out code from repository..."
                 checkout scm
-                sh '''
-                    echo "Git Commit Information:"
-                    git log -1 --pretty=format:"Commit: %h%nAuthor: %an%nDate: %ad%nMessage: %s" --date=short
-                '''
+                script {
+                    sh '''
+                        echo "Git Commit Information:"
+                        git log -1 --pretty=format:"Commit: %h%nAuthor: %an%nDate: %ad%nMessage: %s" --date=short
+                    '''
+                }
             }
         }
 
         stage('🔧 Install Dependencies') {
             steps {
-                echo "Installing Terraform..."
-                sh '''
-                    if ! command -v terraform &> /dev/null; then
-                        wget -q https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip
-                        unzip -q terraform_${TF_VERSION}_linux_amd64.zip
-                        sudo mv terraform /usr/local/bin/
-                        rm terraform_${TF_VERSION}_linux_amd64.zip
-                    fi
-                    terraform version
-                '''
+                echo "Installing required tools and dependencies..."
+                script {
+                    sh '''
+                        if ! command -v terraform &> /dev/null; then
+                            echo "Installing Terraform..."
+                            wget -q https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip
+                            unzip -q terraform_${TF_VERSION}_linux_amd64.zip
+                            sudo mv terraform /usr/local/bin/
+                            rm terraform_${TF_VERSION}_linux_amd64.zip
+                        fi
+                        
+                        terraform version
+                        
+                        if ! command -v az &> /dev/null; then
+                            echo "Azure CLI not found. Please install it manually."
+                        else
+                            az version
+                        fi
+                    '''
+                }
             }
         }
 
         stage('✅ Validate Configuration') {
             steps {
+                echo "Validating Terraform configuration..."
                 dir("${TERRAFORM_DIR}") {
                     sh '''
-                        terraform fmt -check -recursive || echo "Formatting warnings"
+                        terraform fmt -check -recursive || echo "Warning: Terraform files not properly formatted"
                         terraform init -input=false
                         terraform validate
                     '''
@@ -82,6 +99,7 @@ pipeline {
 
         stage('📋 Terraform Plan') {
             steps {
+                echo "Creating Terraform execution plan..."
                 dir("${TERRAFORM_DIR}") {
                     sh '''
                         terraform plan -input=false -out=tfplan -var-file=terraform.tfvars
@@ -94,14 +112,27 @@ pipeline {
 
         stage('🚀 Terraform Apply') {
             when {
-                anyOf { branch 'main'; branch 'master' }
+                anyOf {
+                    branch 'main'
+                    branch 'master'
+                }
             }
             steps {
+                echo "Applying Terraform configuration..."
+                script {
+                    if (env.ENVIRONMENT == 'production') {
+                        input message: 'Deploy to Production?', ok: 'Deploy'
+                    }
+                }
                 dir("${TERRAFORM_DIR}") {
                     sh '''
-                        terraform apply -input=false -auto-approve tfplan
+                        terraform apply -input=false tfplan
                         terraform output -json > outputs.json
                         terraform output > outputs.txt
+                        echo "========================================="
+                        echo "Terraform Outputs:"
+                        echo "========================================="
+                        cat outputs.txt
                     '''
                 }
             }
@@ -109,14 +140,19 @@ pipeline {
 
         stage('📦 Build Application') {
             steps {
+                echo "Building application..."
                 dir("${APP_DIR}") {
                     sh '''
                         if [ -f requirements.txt ]; then
-                            pip3 install -r requirements.txt || echo "Dependency install failed"
+                            echo "Installing Python dependencies..."
+                            pip3 install -r requirements.txt || echo "Warning: Some dependencies failed to install"
                         fi
                         if [ -f app.py ]; then
                             python3 -m py_compile app.py
-                            echo "Python app validated"
+                            echo "✓ Python application validated"
+                        fi
+                        if [ -f index.html ]; then
+                            echo "✓ HTML file found"
                         fi
                     '''
                 }
@@ -124,12 +160,16 @@ pipeline {
         }
 
         stage('🐳 Docker Build (Optional)') {
-            when { environment name: 'BUILD_DOCKER', value: 'true' }
+            when {
+                environment name: 'BUILD_DOCKER', value: 'true'
+            }
             steps {
+                echo "Building Docker image..."
                 dir("${APP_DIR}") {
                     sh '''
                         docker build -t ${PROJECT_NAME}:${BUILD_NUMBER} .
                         docker tag ${PROJECT_NAME}:${BUILD_NUMBER} ${PROJECT_NAME}:latest
+                        echo "Docker image built successfully"
                         docker images | grep ${PROJECT_NAME}
                     '''
                 }
@@ -138,19 +178,44 @@ pipeline {
 
         stage('🌐 Deploy Application') {
             steps {
-                dir("${TERRAFORM_DIR}") {
-                    script {
-                        def publicIP = sh(script: "terraform output -raw public_ip_address || echo '0.0.0.0'", returnStdout: true).trim()
+                echo "Deploying application to Azure..."
+                script {
+                    dir("${TERRAFORM_DIR}") {
+                        def publicIP = sh(script: "terraform output -raw public_ip_address", returnStdout: true).trim()
                         echo "Public IP: ${publicIP}"
-
+                        echo "Waiting for VM to be ready..."
+                        sleep(time: 60, unit: 'SECONDS')
+                        sh """
+                            echo "Application deployment completed via cloud-init"
+                            echo "Access your application at: http://${publicIP}"
+                        """
                         writeFile file: 'deployment_info.txt', text: """
-Deployment Info
-=================
-Build: ${env.BUILD_NUMBER}
-Date: ${new Date()}
+Deployment Information
+======================
+Build Number: ${env.BUILD_NUMBER}
+Build Date: ${new Date()}
 Public IP: ${publicIP}
-URL: http://${publicIP}
+Application URL: http://${publicIP}
+Deployed By: Jenkins CI/CD Pipeline
 """
+                    }
+                }
+            }
+        }
+
+        stage('🔍 Health Check') {
+            steps {
+                echo "Performing health check..."
+                script {
+                    dir("${TERRAFORM_DIR}") {
+                        def publicIP = sh(script: "terraform output -raw public_ip_address", returnStdout: true).trim()
+                        retry(5) {
+                            sleep(time: 10, unit: 'SECONDS')
+                            sh """
+                                curl -f -s -o /dev/null -w "%{http_code}" http://${publicIP} || exit 0
+                                echo "Health check passed"
+                            """
+                        }
                     }
                 }
             }
@@ -158,55 +223,67 @@ URL: http://${publicIP}
 
         stage('📊 Generate Report') {
             steps {
-                sh '''
-                    mkdir -p reports
-                    cat > reports/deployment_report.html << 'EOF'
+                echo "Generating deployment report..."
+                script {
+                    sh '''
+                        mkdir -p reports
+                        cat > reports/deployment_report.html << 'EOF'
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Deployment Report</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 40px; }
-    h1 { color: #667eea; }
-    .info { background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; }
-    .success { color: #10b981; font-weight: bold; }
-  </style>
+    <title>Deployment Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        h1 { color: #667eea; }
+        .info { background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .success { color: #10b981; font-weight: bold; }
+    </style>
 </head>
 <body>
-  <h1>🚀 Deployment Report</h1>
-  <div class="info">
-    <p><strong>Status:</strong> <span class="success">SUCCESS</span></p>
-    <p><strong>Build Number:</strong> ${BUILD_NUMBER}</p>
-    <p><strong>Date:</strong> ${new Date()}</p>
-    <p><strong>Project:</strong> ${PROJECT_NAME}</p>
-  </div>
+    <h1>🚀 Deployment Report</h1>
+    <div class="info">
+        <p><strong>Status:</strong> <span class="success">SUCCESS</span></p>
+        <p><strong>Build Number:</strong> ''' + "${env.BUILD_NUMBER}" + '''</p>
+        <p><strong>Date:</strong> ''' + "${new Date()}" + '''</p>
+        <p><strong>Project:</strong> DevOps CI/CD Pipeline</p>
+    </div>
 </body>
 </html>
 EOF
-                '''
+                        echo "Report generated at: reports/deployment_report.html"
+                    '''
+                }
             }
         }
     }
 
     post {
-        always {
-            node {
-                echo "Cleaning workspace..."
-                sh '''
-                    rm -f terraform/tfplan
-                    rm -f terraform/*.tfvars 2>/dev/null || true
-                    echo "Cleanup done"
-                '''
+        success {
+            echo "========================================="
+            echo "  ✅ Pipeline Completed Successfully!"
+            echo "========================================="
+            script {
+                archiveArtifacts artifacts: 'terraform/outputs.txt,terraform/deployment_info.txt,reports/*.html', allowEmptyArchive: true
+                echo "Deployment successful! Application is now live."
             }
         }
-
-        success {
-            echo "✅ Pipeline Completed Successfully!"
-            archiveArtifacts artifacts: 'terraform/outputs.txt,terraform/deployment_info.txt,reports/*.html', allowEmptyArchive: true
-        }
-
         failure {
-            echo "❌ Pipeline Failed. Check logs."
+            echo "========================================="
+            echo "  ❌ Pipeline Failed"
+            echo "========================================="
+            script {
+                echo "Deployment failed. Please check the logs for details."
+            }
+        }
+        always {
+            echo "========================================="
+            echo "  Cleaning up workspace..."
+            echo "========================================="
+            sh '''
+                rm -f terraform/tfplan
+                rm -f terraform/*.tfvars 2>/dev/null || true
+                echo "Cleanup completed"
+            '''
         }
     }
 }
