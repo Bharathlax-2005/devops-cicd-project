@@ -352,14 +352,15 @@ EOF
             echo "  Cleaning up workspace..."
             echo "========================================="
             
-            // Clean up temporary files
-            sh '''
-                # Remove sensitive files
-                rm -f terraform/tfplan
-                rm -f terraform/*.tfvars 2>/dev/null || true
-                
-                echo "Cleanup completed"
-            '''
+            node {
+                cleanWs()
+                sh '''
+                    # Remove sensitive files
+                    rm -f terraform/tfplan
+                    rm -f terraform/*.tfvars 2>/dev/null || true
+                    echo "Cleanup completed"
+                '''
+            }
         }
-    }
+
 }
