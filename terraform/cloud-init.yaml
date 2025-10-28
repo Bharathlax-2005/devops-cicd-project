@@ -1,0 +1,183 @@
+#cloud-config
+# Cloud-init configuration for VM initialization
+# This script runs on first boot to configure the VM
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - nginx
+  - git
+  - python3
+  - python3-pip
+  - curl
+  - wget
+  - unzip
+  - software-properties-common
+
+write_files:
+  - path: /var/www/html/index.html
+    content: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>DevOps CI/CD Pipeline</title>
+          <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                  min-height: 100vh;
+                  display: flex;
+                  justify-content: center;
+                  align-items: center;
+                  color: #333;
+              }
+              .container {
+                  background: white;
+                  padding: 3rem;
+                  border-radius: 20px;
+                  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                  max-width: 800px;
+                  width: 90%;
+                  text-align: center;
+              }
+              h1 {
+                  color: #667eea;
+                  font-size: 2.5rem;
+                  margin-bottom: 1rem;
+              }
+              .badge {
+                  display: inline-block;
+                  padding: 0.5rem 1rem;
+                  background: #10b981;
+                  color: white;
+                  border-radius: 50px;
+                  margin: 1rem 0;
+                  font-weight: bold;
+              }
+              .info {
+                  background: #f3f4f6;
+                  padding: 1.5rem;
+                  border-radius: 10px;
+                  margin: 2rem 0;
+                  text-align: left;
+              }
+              .info h3 {
+                  color: #667eea;
+                  margin-bottom: 1rem;
+              }
+              .info p {
+                  margin: 0.5rem 0;
+                  line-height: 1.6;
+              }
+              .tech-stack {
+                  display: flex;
+                  justify-content: center;
+                  gap: 1rem;
+                  flex-wrap: wrap;
+                  margin: 2rem 0;
+              }
+              .tech-item {
+                  background: #667eea;
+                  color: white;
+                  padding: 0.5rem 1rem;
+                  border-radius: 8px;
+                  font-size: 0.9rem;
+              }
+              .footer {
+                  margin-top: 2rem;
+                  color: #6b7280;
+                  font-size: 0.9rem;
+              }
+          </style>
+      </head>
+      <body>
+          <div class="container">
+              <h1>🚀 DevOps CI/CD Pipeline</h1>
+              <div class="badge">✓ Deployment Successful</div>
+              
+              <div class="info">
+                  <h3>📋 Deployment Information</h3>
+                  <p><strong>Deployed via:</strong> Terraform + Jenkins CI/CD Pipeline</p>
+                  <p><strong>Cloud Provider:</strong> Microsoft Azure</p>
+                  <p><strong>Server:</strong> Ubuntu 22.04 LTS</p>
+                  <p><strong>Web Server:</strong> Nginx</p>
+                  <p><strong>Status:</strong> <span style="color: #10b981;">● Online</span></p>
+              </div>
+
+              <h3 style="margin: 2rem 0 1rem 0;">Technology Stack</h3>
+              <div class="tech-stack">
+                  <div class="tech-item">🔧 Terraform</div>
+                  <div class="tech-item">🔄 Jenkins</div>
+                  <div class="tech-item">☁️ Azure</div>
+                  <div class="tech-item">🐳 Docker</div>
+                  <div class="tech-item">📦 Git</div>
+                  <div class="tech-item">🌐 Nginx</div>
+              </div>
+
+              <div class="footer">
+                  <p>Automated Infrastructure Deployment</p>
+                  <p>Timestamp: $(date)</p>
+              </div>
+          </div>
+      </body>
+      </html>
+    permissions: '0644'
+
+  - path: /etc/nginx/sites-available/default
+    content: |
+      server {
+          listen ${app_port} default_server;
+          listen [::]:${app_port} default_server;
+          
+          root /var/www/html;
+          index index.html index.htm;
+          
+          server_name _;
+          
+          location / {
+              try_files $uri $uri/ =404;
+          }
+          
+          location /health {
+              access_log off;
+              return 200 "healthy\n";
+              add_header Content-Type text/plain;
+          }
+      }
+    permissions: '0644'
+
+runcmd:
+  # Update system
+  - echo "Starting cloud-init configuration..." > /var/log/deployment.log
+  - date >> /var/log/deployment.log
+  
+  # Configure Nginx
+  - systemctl stop nginx
+  - rm -f /var/www/html/index.nginx-debian.html
+  - systemctl start nginx
+  - systemctl enable nginx
+  - echo "Nginx configured" >> /var/log/deployment.log
+  
+  # Install Python packages
+  - pip3 install flask gunicorn
+  - echo "Python packages installed" >> /var/log/deployment.log
+  
+  # Set correct permissions
+  - chown -R www-data:www-data /var/www/html
+  - chmod -R 755 /var/www/html
+  
+  # Configure firewall (if ufw is installed)
+  - ufw allow ${app_port}/tcp || true
+  - ufw allow 22/tcp || true
+  - ufw allow 443/tcp || true
+  
+  # Final status
+  - echo "Cloud-init configuration completed" >> /var/log/deployment.log
+  - systemctl status nginx >> /var/log/deployment.log
+  - date >> /var/log/deployment.log
+
+final_message: "DevOps VM is ready! Deployment completed in $UPTIME seconds"

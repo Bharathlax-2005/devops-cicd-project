@@ -1,0 +1,203 @@
+# DevOps CI/CD Project - Git Ignore File
+
+# ===== Terraform =====
+# Local .terraform directories
+**/.terraform/*
+
+# Terraform state files
+*.tfstate
+*.tfstate.*
+
+# Terraform plan files
+*.tfplan
+tfplan
+
+# Crash log files
+crash.log
+crash.*.log
+
+# Terraform variable files (may contain sensitive data)
+*.tfvars
+*.tfvars.json
+!terraform.tfvars.example
+
+# Terraform CLI configuration files
+.terraformrc
+terraform.rc
+
+# Terraform lock file (uncomment if you want to ignore it)
+# .terraform.lock.hcl
+
+# ===== Azure =====
+# Azure credentials
+.azure/
+
+# ===== Jenkins =====
+# Jenkins workspace
+.jenkins/
+jenkins_home/
+
+# Jenkins build artifacts
+builds/
+jobs/
+
+# ===== Python =====
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Python distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# ===== Docker =====
+# Docker files (if not needed in repo)
+# Uncomment if you don't want to track Docker images
+# *.tar
+
+# ===== IDE / Editor =====
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# JetBrains IDEs (PyCharm, IntelliJ, etc.)
+.idea/
+*.iml
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.vim/
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# ===== Operating System =====
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+
+# ===== Logs =====
+*.log
+logs/
+*.out
+
+# ===== Backups =====
+backups/
+*.backup
+*.bak
+*.old
+
+# ===== Temporary Files =====
+tmp/
+temp/
+*.tmp
+*.temp
+
+# ===== Output Files =====
+outputs.json
+outputs.txt
+deployment_info.txt
+plan_output.txt
+deployment-report-*.txt
+cleanup-report-*.txt
+
+# ===== Secrets / Credentials =====
+# IMPORTANT: Never commit these!
+secrets.txt
+credentials.json
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.crt
+*.cert
+id_rsa
+id_rsa.pub
+
+# Azure Service Principal files
+sp-credentials.json
+azure-credentials.txt
+
+# SSH keys
+*.pub
+authorized_keys
+
+# ===== Reports =====
+reports/
+*.html
+!app/index.html
+
+# ===== Misc =====
+.notes
+TODO.txt
+scratch/
+
+# ===== Node.js (if added later) =====
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# ===== Project Specific =====
+# Add any project-specific files to ignore here
+deployment-*.txt
