@@ -11,8 +11,8 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', 
-                    credentialsId: 'github-credentials', 
+                git branch: 'main',
+                    credentialsId: 'github-credentials',
                     url: 'https://github.com/Bharathlax-2005/devops-cicd-project.git'
             }
         }
@@ -43,29 +43,24 @@ pipeline {
 
         stage('Deploy Application') {
             steps {
-                echo "Deploying application..."
-                // your app deploy command here
+                echo "🚀 Deploying application..."
+                // Add your app deployment command here
             }
         }
     }
 
     post {
         always {
-            node {
-                echo "========================================="
-                echo "🧹 Cleaning up workspace..."
-                cleanWs() // built-in Jenkins cleanup
-                echo "========================================="
-            }
+            echo "========================================="
+            echo "🧹 Cleaning up workspace..."
+            cleanWs()
+            echo "========================================="
         }
         success {
             echo "✅ Pipeline Succeeded!"
         }
         failure {
-            echo "❌ Pipeline Failed!"
-            script {
-                echo "Deployment failed. Please check the logs for details."
-            }
+            echo "❌ Pipeline Failed! Please check the logs for details."
         }
     }
 }
