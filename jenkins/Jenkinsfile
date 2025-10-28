@@ -320,7 +320,7 @@ EOF
     }
     
     // Post-build actions
-    post {
+        post {
         success {
             echo "========================================="
             echo "  ✅ Pipeline Completed Successfully!"
@@ -328,14 +328,14 @@ EOF
             
             script {
                 // Archive artifacts
-                archiveArtifacts artifacts: 'terraform/outputs.txt,terraform/deployment_info.txt,reports/*.html', 
+                archiveArtifacts artifacts: 'terraform/outputs.txt,terraform/deployment_info.txt,reports/*.html',
                                  allowEmptyArchive: true
                 
                 // Send notification (configure email/Slack as needed)
                 echo "Deployment successful! Application is now live."
             }
         }
-        
+
         failure {
             echo "========================================="
             echo "  ❌ Pipeline Failed"
@@ -346,12 +346,12 @@ EOF
                 echo "Deployment failed. Please check the logs for details."
             }
         }
-        
+
         always {
             echo "========================================="
             echo "  Cleaning up workspace..."
             echo "========================================="
-            
+
             node {
                 cleanWs()
                 sh '''
@@ -362,5 +362,5 @@ EOF
                 '''
             }
         }
-
-}
+    }
+} // 👈 closes the main "pipeline { ... }" block
